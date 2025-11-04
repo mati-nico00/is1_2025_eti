@@ -8,15 +8,26 @@ CREATE TABLE users (
     password TEXT NOT NULL           -- Contraseña hasheada (TEXT es el tipo de cadena recomendado para SQLite)
 );
 
--- Elimina la tabla 'teachers' si ya existe
-DROP TABLE IF EXISTS teachers;
+DROP TABLE IF EXISTS persona;
 
--- Crea la tabla 'teachers' con los campos originales, adaptados a SQLite
-CREATE TABLE teachers(
-    id INTEGER,
-    apellido TEXT,
-    correo TEXT NOT NULL UNIQUE,
-    dni BIGINT UNIQUE,
+CREATE TABLE persona (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    dni INTEGER NOT NULL UNIQUE,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    CONSTRAINT check_persona_dni CHECK(dni < 1000000000 AND dni >= 0)
+    --FOREIGN KEY(id) REFERENCES users(id) ON DELETE CASCADE
+);
 
-    CONSTRAINT fk_teachers_users PRIMARY KEY (id) REFERENCES users (id)
+DROP TABLE IF EXISTS teacher;
+
+CREATE TABLE teacher (
+    teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    dni INTEGER NOT NULL UNIQUE,
+    degree TEXT NOT NULL,            -- Titulo universitario del profesor 
+    email TEXT NOT NULL UNIQUE,      -- Correo electrónico del profesor 
+
+    CONSTRAINT check_email CHECK(email LIKE '%@%.%'),  --chequea mail válido
+    FOREIGN KEY (dni) REFERENCES persona(dni) ON DELETE CASCADE
 );
