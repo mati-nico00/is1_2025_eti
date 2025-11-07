@@ -4,15 +4,18 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap; // Utilidad para serializar/deserializar objetos Java a/desde JSON.
+import java.util.List;
 import java.util.Map; // Importa los métodos estáticos principales de Spark (get, post, before, after, etc.).
 
 import org.javalite.activejdbc.Base; // Clase central de ActiveJDBC para gestionar la conexión a la base de datos.
+import org.javalite.activejdbc.LazyList;
 import org.mindrot.jbcrypt.BCrypt; // Utilidad para hashear y verificar contraseñas de forma segura.
 
 import com.fasterxml.jackson.databind.ObjectMapper; // Representa un modelo de datos y el nombre de la vista a renderizar.
 import com.is1.proyecto.config.DBConfigSingleton; // Motor de plantillas Mustache para Spark.
-import com.is1.proyecto.models.Person;
+import com.is1.proyecto.models.Member;
 import com.is1.proyecto.models.Teacher;
 import com.is1.proyecto.models.User; // Para crear mapas de datos (modelos para las plantillas).
 
@@ -320,11 +323,39 @@ public class App {
 
         // Api
         get("/register_teacher", (req, res) -> {
+            // Intenta obtener el nombre de usuario y la bandera de login de la sesión.
+            String currentUsername = req.session().attribute("currentUserUsername");
+            Boolean loggedIn = req.session().attribute("loggedIn");
+
+            // 1. Verificar si el usuario ha iniciado sesión.
+            // Si no hay un nombre de usuario en la sesión, la bandera es nula o falsa,
+            // significa que el usuario no está logueado o su sesión expiró.
+            if (currentUsername == null || loggedIn == null || !loggedIn) {
+                System.out.println("DEBUG: Acceso no autorizado a /dashboard. Redirigiendo a /login.");
+                // Redirige al login con un mensaje de error.
+                res.redirect("/login?error=Debes iniciar sesión para acceder a esta página.");
+                return null; // Importante retornar null después de una redirección.
+            }
+
             HashMap<String, String> model = new HashMap<>();
             return new ModelAndView(model, "teacher_form.mustache");
         }, new MustacheTemplateEngine());
 
         post("/register_teacher", (req, res) -> {
+            // Intenta obtener el nombre de usuario y la bandera de login de la sesión.
+            String currentUsername = req.session().attribute("currentUserUsername");
+            Boolean loggedIn = req.session().attribute("loggedIn");
+
+            // 1. Verificar si el usuario ha iniciado sesión.
+            // Si no hay un nombre de usuario en la sesión, la bandera es nula o falsa,
+            // significa que el usuario no está logueado o su sesión expiró.
+            if (currentUsername == null || loggedIn == null || !loggedIn) {
+                System.out.println("DEBUG: Acceso no autorizado a /dashboard. Redirigiendo a /login.");
+                // Redirige al login con un mensaje de error.
+                res.redirect("/login?error=Debes iniciar sesión para acceder a esta página.");
+                return null; // Importante retornar null después de una redirección.
+            }
+
             Map<String, Object> model = new HashMap<>();
 
             String dni = req.queryParams("dni");
@@ -340,17 +371,23 @@ public class App {
             }
 
             // Guardar en la BD
-            Person p = new Person();
-            p.setDNI(Integer.valueOf(dni));
-            p.setFirstName(nombre);
-            p.setLastName(apellido);
-            p.saveIt();
+            try {
+                Member m = new Member();
+                m.setDNI(Integer.valueOf(dni));
+                m.setFirstName(nombre);
+                m.setLastName(apellido);
+                m.saveIt();
 
-            Teacher t = new Teacher();
-            t.setEmail(mail);
-            t.setDegree(titulo);
-            t.set("dni", Integer.valueOf(dni));
-            t.saveIt();
+                Teacher t = new Teacher();
+                t.setEmail(mail);
+                t.setDegree(titulo);
+                t.setDni(Integer.valueOf(dni));
+                t.saveIt();
+            } catch (Exception e) {
+                e.printStackTrace();
+                res.status(500);
+                return "Error al guardar al nuevo usuario: " + e.getMessage();
+            }
 
             // Redirigir a la lista
             res.redirect("/teachers");
@@ -359,33 +396,58 @@ public class App {
 
         // GET: Listado de profesores
         get("/teachers", (req, res) -> {
+            // Intenta obtener el nombre de usuario y la bandera de login de la sesión.
+            String currentUsername = req.session().attribute("currentUserUsername");
+            Boolean loggedIn = req.session().attribute("loggedIn");
+
+            // 1. Verificar si el usuario ha iniciado sesión.
+            // Si no hay un nombre de usuario en la sesión, la bandera es nula o falsa,
+            // significa que el usuario no está logueado o su sesión expiró.
+            if (currentUsername == null || loggedIn == null || !loggedIn) {
+                System.out.println("DEBUG: Acceso no autorizado a /dashboard. Redirigiendo a /login.");
+                // Redirige al login con un mensaje de error.
+                /*res.redirect("/login?error=Debes iniciar sesión para acceder a esta página.");
+                return null; // Importante retornar null después de una redirección.*/
+            }
+
             Map<String, Object> model = new HashMap<>();
-            model.put("teachers", Teacher.findAll()); // Trae todos los profesores de la BD
+
+            List<Map<String, Object>> teachersList = new ArrayList<>();
+
+            LazyList<Teacher> teachers = Teacher.findAll();
+            for (Teacher teacher : teachers) {
+                Member person = Member.findById(teacher.getId());
+                Map<String, Object> t = new HashMap<>();
+                t.put("dni", person.getDNI());
+                t.put("nombre", person.getFirstName());
+                t.put("apellido", person.getLastName());
+                t.put("mail", teacher.getEmail());
+                t.put("titulo", teacher.getDegree());
+                teachersList.add(t);
+            }
+
+            model.put("teachers", teachersList);
             return new ModelAndView(model, "teacher_list.mustache");
         }, new MustacheTemplateEngine());
 
         // Solo para regenerar la db
         get("/impl_db_dev", (req, res) -> {
             String sqlPath = "src/main/resources/scheme.sql";
-
-            // Leer el archivo SQL
             String sql = new String(Files.readAllBytes(Paths.get(sqlPath)));
-
-            // Ejecutar el script
-            try (Connection conn = Base.connection(); Statement stmt = conn.createStatement()) {
+        
+            try {
                 for (String command : sql.split(";")) {
                     if (!command.trim().isEmpty()) {
-                        stmt.execute(command.trim());
+                        Base.exec(command.trim());
                     }
                 }
-                System.out.println("Base de datos inicializada.");
-            }
-            catch (Exception e) {
+                System.out.println("Base de datos inicializada correctamente.");
+                return "Base de datos recreada";
+            } catch (Exception e) {
                 e.printStackTrace();
-                return e.getMessage();
+                res.status(500);
+                return "Error al recrear la base de datos: " + e.getMessage();
             }
-
-            return "Base de datos recreada";
         });
 
     } // Fin del método main

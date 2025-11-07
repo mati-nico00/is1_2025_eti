@@ -1,12 +1,12 @@
 package com.is1.proyecto.models;
 
 import org.javalite.activejdbc.Model;
+import org.javalite.activejdbc.annotations.IdName;
 import org.javalite.activejdbc.annotations.Table;
 
-@Table("persona")
-public class Person extends Model {
-
-    
+@Table("members")
+@IdName("dni")
+public class Member extends Model {
     public Integer getDNI(){
         return getInteger("dni");
     }

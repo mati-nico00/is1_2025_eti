@@ -1,11 +1,12 @@
 package com.is1.proyecto.models;
 
 import org.javalite.activejdbc.Model;
+import org.javalite.activejdbc.annotations.IdName;
 import org.javalite.activejdbc.annotations.Table;
 
-@Table("teacher")
+@Table("teachers")
+@IdName("dni")
 public class Teacher extends Model {
-
     public String getEmail() {
         return getString("email"); 
     }
@@ -19,6 +20,14 @@ public class Teacher extends Model {
     }
 
     public void setDegree(String degree) {
+        set("degree", degree); 
+    }
+
+    public Integer getDni() {
+        return getInteger("degree"); 
+    }
+
+    public void setDni(Integer degree) {
         set("degree", degree); 
     }
 

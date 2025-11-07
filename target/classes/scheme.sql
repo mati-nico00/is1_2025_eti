@@ -1,3 +1,7 @@
+-- DROP TABLE IF EXISTS member;
+-- DROP TABLE IF EXISTS persona;
+-- DROP TABLE IF EXISTS teacher;
+
 -- Elimina la tabla 'users' si ya existe para asegurar un inicio limpio
 DROP TABLE IF EXISTS users;
 
@@ -8,26 +12,21 @@ CREATE TABLE users (
     password TEXT NOT NULL           -- Contraseña hasheada (TEXT es el tipo de cadena recomendado para SQLite)
 );
 
-DROP TABLE IF EXISTS persona;
+DROP TABLE IF EXISTS members;
 
-CREATE TABLE persona (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    dni INTEGER NOT NULL UNIQUE,
+CREATE TABLE members (
+    dni INTEGER PRIMARY KEY,
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
-    CONSTRAINT check_persona_dni CHECK(dni < 1000000000 AND dni >= 0)
-    --FOREIGN KEY(id) REFERENCES users(id) ON DELETE CASCADE
+    CONSTRAINT check_members_dni CHECK(dni < 1000000000 AND dni >= 0)
 );
 
-DROP TABLE IF EXISTS teacher;
+DROP TABLE IF EXISTS teachers;
 
-CREATE TABLE teacher (
-    teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    
-    dni INTEGER NOT NULL UNIQUE,
+CREATE TABLE teachers (
+    dni INTEGER PRIMARY KEY FOREIGN KEY (dni) REFERENCES members(dni) ON DELETE CASCADE,
     degree TEXT NOT NULL,            -- Titulo universitario del profesor 
     email TEXT NOT NULL UNIQUE,      -- Correo electrónico del profesor 
 
-    CONSTRAINT check_email CHECK(email LIKE '%@%.%'),  --chequea mail válido
-    FOREIGN KEY (dni) REFERENCES persona(dni) ON DELETE CASCADE
+    CONSTRAINT check_teachers_email CHECK(email LIKE '%@%.%')  --chequea mail válido
 );
